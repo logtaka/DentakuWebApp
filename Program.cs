@@ -1,72 +1,78 @@
 using System.Globalization;
+using System.Threading.Tasks;
+#if WASM
+using System.Runtime.InteropServices.JavaScript;
+#endif
 
-internal static class Program
+internal static partial class Program
 {
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
 
-    private static void Main()
+    private static async Task Main()
     {
+#if !WASM
         Console.OutputEncoding = System.Text.Encoding.UTF8;
-        Console.WriteLine("シンプル電卓へようこそ！\n");
+#endif
+        PrintLine("シンプル電卓へようこそ！\n");
 
         while (true)
         {
-            var operation = PromptOperation();
+            var operation = await PromptOperationAsync();
             if (operation == Operation.Exit)
             {
-                Console.WriteLine("ご利用ありがとうございました。");
+                PrintLine("ご利用ありがとうございました。");
                 break;
             }
 
-            var left = PromptNumber("1つ目の数値を入力してください: ");
-            var right = PromptNumber("2つ目の数値を入力してください: ");
+            var left = await PromptNumberAsync("1つ目の数値を入力してください: ");
+            var right = await PromptNumberAsync("2つ目の数値を入力してください: ");
 
             try
             {
                 var result = Calculate(operation, left, right);
-                Console.WriteLine($"結果: {FormatNumber(left)} {GetSymbol(operation)} {FormatNumber(right)} = {FormatNumber(result)}\n");
+                PrintLine($"結果: {FormatNumber(left)} {GetSymbol(operation)} {FormatNumber(right)} = {FormatNumber(result)}\n");
             }
             catch (DivideByZeroException)
             {
-                Console.WriteLine("0 で割ることはできません。別の数値を入力してください。\n");
+                PrintLine("0 で割ることはできません。別の数値を入力してください。\n");
             }
         }
     }
 
-    private static Operation PromptOperation()
+    private static async Task<Operation> PromptOperationAsync()
     {
         while (true)
         {
-            Console.WriteLine("操作を選んでください:");
-            Console.WriteLine("1. 足し算");
-            Console.WriteLine("2. 引き算");
-            Console.WriteLine("3. かけ算");
-            Console.WriteLine("4. 割り算");
-            Console.WriteLine("5. 終了");
-            Console.Write("番号: ");
+            PrintLine("操作を選んでください:");
+            PrintLine("1. 足し算");
+            PrintLine("2. 引き算");
+            PrintLine("3. かけ算");
+            PrintLine("4. 割り算");
+            PrintLine("5. 終了");
+            Print("番号: ");
 
-            var input = Console.ReadLine();
+            var input = await ReadLineAsync();
             if (Enum.TryParse(input, out Operation operation) && Enum.IsDefined(operation))
             {
                 return operation;
             }
 
-            Console.WriteLine("1〜5 の番号を入力してください。\n");
+            PrintLine("1〜5 の番号を入力してください。\n");
         }
     }
 
-    private static double PromptNumber(string message)
+    private static async Task<double> PromptNumberAsync(string message)
     {
         while (true)
         {
-            Console.Write(message);
-            var input = Console.ReadLine();
+            Print(message);
+            var input = await ReadLineAsync();
             if (double.TryParse(input, NumberStyles.Float, Culture, out var value))
             {
                 return value;
             }
 
-            Console.WriteLine("数値を入力してください。例: 3.14 または -2\n");
+            PrintLine("数値を入力してください。例: 3.14 または -2\n");
         }
     }
 
@@ -92,6 +98,44 @@ internal static class Program
         Operation.Divide => "÷",
         _ => string.Empty
     };
+
+    private static void Print(string message)
+    {
+#if WASM
+        JSWrite(message);
+#else
+        Console.Write(message);
+#endif
+    }
+
+    private static void PrintLine(string message)
+    {
+#if WASM
+        JSWriteLine(message);
+#else
+        Console.WriteLine(message);
+#endif
+    }
+
+    private static Task<string> ReadLineAsync()
+    {
+#if WASM
+        return JSReadLineAsync();
+#else
+        return Task.FromResult(Console.ReadLine() ?? string.Empty);
+#endif
+    }
+
+#if WASM
+    [JSImport("console.write", "app")]
+    private static partial void JSWrite(string message);
+
+    [JSImport("console.writeLine", "app")]
+    private static partial void JSWriteLine(string message);
+
+    [JSImport("console.readLine", "app")]
+    private static partial Task<string> JSReadLineAsync();
+#endif
 
     private enum Operation
     {
