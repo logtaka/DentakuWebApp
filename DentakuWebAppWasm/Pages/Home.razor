@@ -1,7 +1,68 @@
-﻿@page "/"
+@page "/"
+@inject IJSRuntime JS
+@inject ConsoleHost ConsoleHost
 
-<PageTitle>Home</PageTitle>
+<PageTitle>電卓コンソール</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="console-page">
+    <h1>ブラウザで動くシンプル電卓</h1>
+    <p class="lead">コンソール版の操作をそのままブラウザで体験できます。Enterキーで送信してください。</p>
 
-Welcome to your new app.
+    <div class="console-panel">
+        <div class="console-output" id="console-output" @ref="consoleElement" aria-live="polite"></div>
+
+        <form class="console-input" @onsubmit="HandleSubmitAsync" @onsubmit:preventDefault>
+            <label for="console-input-field" class="console-prompt">&gt;</label>
+            <input
+                id="console-input-field"
+                autocomplete="off"
+                spellcheck="false"
+                class="console-input-field"
+                @bind="currentInput"
+                @bind:event="oninput"
+                @onkeydown="HandleKeyDown" />
+            <button type="submit" class="console-submit">送信</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    private ElementReference consoleElement;
+    private IJSObjectReference? module;
+    private string currentInput = string.Empty;
+    private bool isInitialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./app.js");
+        await module.InvokeVoidAsync("initConsole", consoleElement);
+        await ConsoleHost.StartAsync("console-output");
+        isInitialized = true;
+        await module.InvokeVoidAsync("focusInput");
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (!isInitialized || string.IsNullOrWhiteSpace(currentInput))
+        {
+            return;
+        }
+
+        await module!.InvokeVoidAsync("sendInput", currentInput);
+        currentInput = string.Empty;
+        await module.InvokeVoidAsync("focusInput");
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter")
+        {
+            await HandleSubmitAsync();
+        }
+    }
+}

@@ -8,7 +8,11 @@ internal static partial class Program
 {
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
 
-    private static async Task Main()
+#if !WASM
+    private static async Task Main() => await RunAsync();
+#endif
+
+    internal static async Task RunAsync()
     {
 #if !WASM
         Console.OutputEncoding = System.Text.Encoding.UTF8;
